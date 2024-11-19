@@ -38,6 +38,9 @@ RAW_URL_REGEX = re.compile(f'https?://(([^\\s]*)\\.)?amazon\\.{AMAZON_TLD}/?([^\
 USERNAMES_TO_IGNORE = [username.lower() for username in os.environ.get('IGNORE_USERS', '').split(',') if username.startswith('@')]
 USER_IDS_TO_IGNORE = [int(user_id) for user_id in os.environ.get('IGNORE_USERS', '').split(',') if user_id.isdigit()]
 
+# Check
+CODE_VERSION = '1.1.0'
+
 def get_amazon_tag(original_tag):
     """
     Returns either the original tag or a different one based on random probability,
@@ -365,6 +368,7 @@ def main():
     adds a message handler that calls handle_message() for all non-command text messages, and
     starts the bot in polling mode.
     """
+    log(f"Starting bot version {CODE_VERSION} ...")
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.run_polling()
