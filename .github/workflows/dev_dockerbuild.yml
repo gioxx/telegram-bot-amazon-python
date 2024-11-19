@@ -1,0 +1,40 @@
+name: Docker Dev Build/Publish Image
+on:
+  workflow_dispatch:
+
+jobs:
+  docker-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3.0.0
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Available platforms
+        run: echo ${{ steps.buildx.outputs.platforms }}
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3.1.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: gfsolone/telegram-bot-amazon:dev
+          labels: |
+            org.opencontainers.image.title=Telegram Bot Amazon (Dev)
+            org.opencontainers.image.description=Development version of Telegram Bot for Amazon Affiliate Links
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
