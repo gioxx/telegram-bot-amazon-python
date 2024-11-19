@@ -1,18 +1,18 @@
 # telegram-bot-amazon - Python version
 # Gioxx, 2024, https://github.com/gioxx/telegram-bot-amazon-python
 # In all ways inspired by the original work of LucaTNT (https://github.com/LucaTNT/telegram-bot-amazon), converted to Python, updated to work with newer versions of the software.
-# Credits: all this would not have been possible (in the same times) without the invaluable help of Claude 3 Sonnet.
+# Credits: all this would not have been possible (in the same times) without the invaluable help of Claude 3.5 Sonnet.
 
-import os
-import re
-import asyncio
-import sys
 from datetime import datetime
-from urllib.parse import urlparse, parse_qs, urlencode
-
-import aiohttp
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from urllib.parse import urlparse, parse_qs, urlencode
+import aiohttp
+import asyncio
+import os
+import random
+import re
+import sys
 
 # Configuration
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -26,6 +26,7 @@ CHECK_FOR_REDIRECT_CHAINS = os.environ.get('CHECK_FOR_REDIRECT_CHAINS', 'false')
 MAX_REDIRECT_CHAIN_DEPTH = int(os.environ.get('MAX_REDIRECT_CHAIN_DEPTH', 2))
 GROUP_REPLACEMENT_MESSAGE = os.environ.get('GROUP_REPLACEMENT_MESSAGE', 'Message by {USER} with Amazon affiliate link:\n\n{MESSAGE}')
 AMAZON_TLD = os.environ.get('AMAZON_TLD', 'com')
+SUPPORT_DEV = os.environ.get('SUPPORT_DEV', 'true').lower() == 'true'
 
 # Regex patterns
 FULL_URL_REGEX = re.compile(r'https?://(([^\s]*)\.)?amazon\.([a-z.]{2,5})(\/d\/([^\s]*)|\/([^\s]*)\/?(?:dp|o|gp|-)\/)(aw\/d\/|product\/)?(B[0-9A-Z]{9})([^\s]*)', re.IGNORECASE)
@@ -37,7 +38,39 @@ RAW_URL_REGEX = re.compile(f'https?://(([^\\s]*)\\.)?amazon\\.{AMAZON_TLD}/?([^\
 USERNAMES_TO_IGNORE = [username.lower() for username in os.environ.get('IGNORE_USERS', '').split(',') if username.startswith('@')]
 USER_IDS_TO_IGNORE = [int(user_id) for user_id in os.environ.get('IGNORE_USERS', '').split(',') if user_id.isdigit()]
 
+# Check
+CODE_VERSION = '1.1.0'
+
+def get_amazon_tag(original_tag):
+    """
+    Returns either the original tag or a different one based on random probability,
+    only if SUPPORT_DEV is True
+    
+    Args:
+        original_tag (str): The original Amazon affiliate tag from env vars
+        
+    Returns:
+        str: Either the original tag or an alternate one
+    """
+    # If SUPPORT_DEV is False, always return the original tag
+    if not SUPPORT_DEV:
+        return original_tag
+        
+    # Probability of using an alternate tag
+    if random.random() < 0.35:  # 35% probability
+        # List of alternate tags to use
+        alternate_tags = [
+            "gioxx-21"
+        ]
+        selected_tag = random.choice([tag for tag in alternate_tags if tag != original_tag])
+        log(f"Using alternate affiliate tag: {selected_tag}")
+        return selected_tag
+    
+    return original_tag
+
 async def shorten_url(url):
+    """Shorten a URL using the bit.ly API."""
+    
     headers = {
         'Authorization': f'Bearer {BITLY_TOKEN}',
         'Content-Type': 'application/json',
@@ -52,27 +85,72 @@ async def shorten_url(url):
                 log(f"Error in bitly response {result}")
                 return url
 
-def build_amazon_url(asin):
-    return f'https://www.amazon.{AMAZON_TLD}/dp/{asin}?tag={AMAZON_TAG}'
+def build_amazon_url(asin):    
+    """
+    Constructs an Amazon product URL using the provided ASIN and an affiliate tag.
+
+    Args:
+        asin (str): The Amazon Standard Identification Number for the product.
+
+    Returns:
+        str: A formatted URL string pointing to the Amazon product page with the affiliate tag appended.
+    """
+    selected_tag = get_amazon_tag(AMAZON_TAG)
+    return f'https://www.amazon.{AMAZON_TLD}/dp/{asin}?tag={selected_tag}'
 
 def build_raw_amazon_url(element):
+    """
+    Constructs an Amazon product URL using the provided element and an affiliate tag.
+
+    Args:
+        element (dict): A dictionary containing the 'full_url' and optionally 'expanded_url' and 'asin' keys.
+
+    Returns:
+        str: A formatted URL string pointing to the Amazon product page with the affiliate tag appended.
+    """
     url = element.get('expanded_url') or element['full_url']
     parsed_url = urlparse(url)
     query = parse_qs(parsed_url.query)
-    query['tag'] = [AMAZON_TAG]
+    selected_tag = get_amazon_tag(AMAZON_TAG)
+    query['tag'] = [selected_tag]
     new_query = urlencode(query, doseq=True)
     return parsed_url._replace(query=new_query).geturl()
 
 async def get_amazon_url(element):
+    """
+    Asynchronously constructs a complete Amazon URL for a given element and shortens it if necessary.
+
+    Args:
+        element (dict): A dictionary containing keys 'asin' and/or 'full_url' to determine the Amazon URL type.
+
+    Returns:
+        str: A complete Amazon product URL, optionally shortened if SHORTEN_LINKS is enabled.
+    """
     url = build_amazon_url(element['asin']) if element.get('asin') else build_raw_amazon_url(element)
     return await shorten_url(url) if SHORTEN_LINKS else url
 
 def log(msg):
+    """
+    Logs a message to the standard output, prepending the current date and time.
+
+    Args:
+        msg (str): The message to be logged
+    """
     date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"{date} {msg}", flush=True)
     sys.stdout.flush()
 
 async def get_long_url(short_url, chain_depth=0):
+    """
+    Asynchronously resolves a shortened URL to its full URL.
+
+    Args:
+        short_url (str): The shortened URL to be resolved.
+        chain_depth (int, optional): The current depth of the redirect chain. Defaults to 0.
+
+    Returns:
+        dict: A dictionary containing the full URL and the original short URL.
+    """
     try:
         chain_depth += 1
         async with aiohttp.ClientSession() as session:
@@ -92,16 +170,54 @@ async def get_long_url(short_url, chain_depth=0):
         return None
 
 def get_asin_from_full_url(url):
+    """
+    Extracts the ASIN from a full Amazon URL.
+
+    Args:
+        url (str): The full Amazon URL to be parsed.
+
+    Returns:
+        str: The ASIN or the original URL if no ASIN could be extracted.
+    """
     match = FULL_URL_REGEX.search(url)
     return match.group(8) if match else url
 
 def build_mention(user):
+    """
+    Builds a mention string for a Telegram user.
+
+    Args:
+        user (telegram.User): The user to be mentioned.
+
+    Returns:
+        str: A string that can be used to mention the user in a message.
+    """
     return f"@{user.username}" if user.username else f"{user.first_name} {user.last_name or ''}"
 
 def is_group(chat):
+    """Checks if a chat is a group or a supergroup.
+
+    Args:
+        chat (telegram.Chat): The chat to be checked.
+
+    Returns:
+        bool: True if the chat is a group or supergroup, False otherwise.
+    """
     return chat.type in ['group', 'supergroup']
 
 async def build_message(chat, message, replacements, user):
+    """
+    Builds a message string for a Telegram message based on the provided chat type and information.
+
+    Args:
+        chat (telegram.Chat): The chat to be checked.
+        message (str): The original message containing affiliate links.
+        replacements (list): A list of dictionaries containing the 'full_url' and optionally 'expanded_url' and 'asin' keys.
+        user (telegram.User): The user that posted the message.
+
+    Returns:
+        str: A formatted message string to be sent as a reply to the original message.
+    """
     if is_group(chat):
         affiliate_message = message
         for element in replacements:
@@ -117,6 +233,17 @@ async def build_message(chat, message, replacements, user):
         return text
 
 async def delete_and_send(update: Update, context, text):
+    """
+    Deletes the original message and sends a new one with the affiliated link.
+
+    Args:
+        update (Update): The update that triggered the message.
+        context (CallbackContext): The context of the callback.
+        text (str): The text of the new message to be sent.
+
+    Returns:
+        bool: True if the message was deleted, False otherwise.
+    """
     chat = update.message.chat
     message_id = update.message.message_id
     chat_id = chat.id
@@ -140,6 +267,15 @@ async def delete_and_send(update: Update, context, text):
     return deleted
 
 def replace_text_links(message):
+    """
+    Replaces Telegram text links with the actual URLs.
+
+    Args:
+        message (telegram.Message): The message to be processed.
+
+    Returns:
+        str: The text of the message with URLs replaced.
+    """
     if message.entities:
         text = message.text
         offset_shift = 0
@@ -154,6 +290,18 @@ def replace_text_links(message):
     return message.text
 
 async def handle_message(update: Update, context):
+    """
+    Handles a message update by replacing Amazon links with affiliated links.
+
+    If the message is in a group and the user is not in the IGNORE_USERS list, it will delete the original message and send a new one with the affiliated links.
+
+    Args:
+        update (Update): The Telegram update containing the message.
+        context (CallbackContext): The context of the callback.
+
+    Returns:
+        None
+    """
     try:
         msg = update.message
         from_username = msg.from_user.username.lower() if msg.from_user.username else ""
@@ -213,6 +361,14 @@ async def handle_message(update: Update, context):
         print(e)
 
 def main():
+    """
+    Entry point of the script.
+
+    It creates a Telegram bot instance using the token provided in the TELEGRAM_BOT_TOKEN environment variable,
+    adds a message handler that calls handle_message() for all non-command text messages, and
+    starts the bot in polling mode.
+    """
+    log(f"Starting bot version {CODE_VERSION} ...")
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.run_polling()

@@ -1,0 +1,20 @@
+services:
+  amznlinksbot:
+    container_name: amznlinksbot
+    image: gfsolone/telegram-bot-amazon:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - AMAZON_TAG=${AMAZON_TAG}
+      - AMAZON_TLD=it
+      - SHORTEN_LINKS=true
+      - BITLY_TOKEN=${BITLY_TOKEN}
+      - GROUP_REPLACEMENT_MESSAGE={USER} ha inserito questo messaggio che riporta un link ad Amazon:\n{MESSAGE}
+    tty: true
+    stdin_open: true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
