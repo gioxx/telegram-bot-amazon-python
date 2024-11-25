@@ -39,7 +39,7 @@ USERNAMES_TO_IGNORE = [username.lower() for username in os.environ.get('IGNORE_U
 USER_IDS_TO_IGNORE = [int(user_id) for user_id in os.environ.get('IGNORE_USERS', '').split(',') if user_id.isdigit()]
 
 # Check
-CODE_VERSION = '1.1.0'
+CODE_VERSION = '1.1.1'
 
 def get_amazon_tag(original_tag):
     """
@@ -57,7 +57,7 @@ def get_amazon_tag(original_tag):
         return original_tag
         
     # Probability of using an alternate tag
-    if random.random() < 0.35:  # 35% probability
+    if random.random() < 0.20:  # 20% probability
         # List of alternate tags to use
         alternate_tags = [
             "gioxx-21"
