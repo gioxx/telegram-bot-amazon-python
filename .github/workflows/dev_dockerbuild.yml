@@ -2,6 +2,11 @@ name: Docker Dev Build/Publish Image
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+  actions: read
+
 jobs:
   docker-dev:
     runs-on: ubuntu-latest
