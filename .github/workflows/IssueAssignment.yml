@@ -1,19 +1,29 @@
-name: Issue assignment
+name: Auto Assignment for Issues
+run-name: Auto Assignment for Issues
 
 on:
-    issues:
-        types: [opened]
-
-permissions:
-  contents: read
+  issues:
+    types: [opened]
 
 jobs:
-    auto-assign:
-        runs-on: ubuntu-latest
-        steps:
-            - name: 'Auto-assign issue'
-              uses: pozil/auto-assign-issue@v3.0.0
-              with:
-                  assignees: gioxx
-                  numOfAssignee: 1
-                  allowSelfAssign: true
+  process-issue:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Assign issue to repo owner
+        uses: actions/github-script@v9
+        with:
+          script: |
+            try {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                assignees: [context.repo.owner]
+              });
+            } catch (error) {
+              core.setFailed(`Failed to assign issue: ${error.message}`);
+            }

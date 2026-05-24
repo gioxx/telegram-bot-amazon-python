@@ -1,10 +1,17 @@
-[![](https://img.shields.io/github/issues/gioxx/telegram-bot-amazon-python.svg)](https://github.com/gioxx/telegram-bot-amazon-python/issues) [![](https://img.shields.io/github/issues-pr-raw/gioxx/telegram-bot-amazon-python.svg)](https://github.com/gioxx/telegram-bot-amazon-python/pulls) [![](https://img.shields.io/docker/pulls/gfsolone/telegram-bot-amazon.svg)](https://hub.docker.com/r/gfsolone/telegram-bot-amazon) [![](https://img.shields.io/docker/image-size/gfsolone/telegram-bot-amazon/latest.svg)](https://hub.docker.com/r/gfsolone/telegram-bot-amazon)
+# Python Amazon Bot for Telegram
 
 This is a Telegram bot that, if made admin of a group, will delete any message containing an Amazon link and re-post it tagged with the specified affiliate tag.
 
 It can be either messaged directly, or added **as an administrator** to a group or supergroup.
 
 If messaged directly, it replies with the affiliate link, while in a group it will delete any message containing an Amazon link and replace it with a new message, with a format that is customizable through the `GROUP_REPLACEMENT_MESSAGE` environment variables.
+
+[![](https://img.shields.io/github/issues/gioxx/telegram-bot-amazon-python.svg)](https://github.com/gioxx/telegram-bot-amazon-python/issues)
+[![](https://img.shields.io/github/issues-pr-raw/gioxx/telegram-bot-amazon-python.svg)](https://github.com/gioxx/telegram-bot-amazon-python/pulls)
+[![MIT License](https://img.shields.io/github/license/gioxx/telegram-bot-amazon-python)](https://github.com/gioxx/telegram-bot-amazon-python/blob/main/LICENSE)
+[![](https://img.shields.io/badge/GHCR-available-blue?logo=docker)](https://github.com/users/gioxx/packages/container/package/telegram-bot-amazon-python)
+[![](https://img.shields.io/docker/pulls/gfsolone/telegram-bot-amazon-python.svg)](https://hub.docker.com/r/gfsolone/telegram-bot-amazon-python)
+[![](https://img.shields.io/docker/image-size/gfsolone/telegram-bot-amazon-python/latest.svg)](https://hub.docker.com/r/gfsolone/telegram-bot-amazon-python)
 
 ## Configuration
 
